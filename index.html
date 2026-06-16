@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Scoreboard TV Live - Debug Mode</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght=600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { background: transparent; margin: 0; padding: 20px; font-family: 'Poppins', sans-serif; overflow: hidden; }
+        .widget-container { display: inline-flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); border-radius: 14px; overflow: hidden; }
+        .scoreboard { display: flex; align-items: center; background: rgba(10, 10, 15, 0.88); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.15); border-bottom: none; padding: 15px 25px; border-radius: 14px 14px 0 0; color: #ffffff; }
+        .team-container { display: flex; flex-direction: column; align-items: center; min-width: 160px; }
+        .cards-container { display: flex; gap: 10px; margin-bottom: 6px; height: 18px; font-size: 0.75rem; font-weight: 700; }
+        .card-badge { display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity 0.3s ease; }
+        .card-badge.visible { opacity: 1; }
+        .mini-card { width: 8px; height: 12px; border-radius: 1px; display: inline-block; }
+        .yellow { background-color: #FFEB3B; }
+        .red { background-color: #F44336; }
+        .team-row { display: flex; align-items: center; font-size: 1.25rem; font-weight: 800; letter-spacing: 0.5px; }
+        .team-logo { width: 32px; height: 32px; object-fit: contain; margin: 0 12px; }
+        .match-status { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 20px; margin: 0 15px; border-left: 2px solid rgba(255, 255, 255, 0.1); border-right: 2px solid rgba(255, 255, 255, 0.1); align-self: flex-end; margin-bottom: 4px; }
+        .score-box { font-size: 2.2rem; font-weight: 800; color: #FFB300; text-shadow: 0 0 10px rgba(255, 179, 0, 0.4); display: flex; align-items: center; gap: 10px; line-height: 1; }
+        .time-badge { margin-top: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #00ffff; background: rgba(0, 255, 255, 0.1); padding: 2px 12px; border-radius: 6px; letter-spacing: 1px; min-width: 65px; text-align: center; }
+        .penalty-box { font-size: 0.85rem; color: #ff3333; font-weight: 800; margin-top: 2px; letter-spacing: 0.5px; display: none; }
+        .live-pulse { animation: pulseIn 1s infinite alternate; }
+        @keyframes pulseIn { 0% { opacity: 0.7; } 100% { opacity: 1; } }
+        .ticker-bar { width: 100%; height: 0px; background: rgba(20, 20, 30, 0.9); border: 1px solid rgba(255, 255, 255, 0.15); border-top: none; border-bottom: 3px solid #FFB300; border-radius: 0 0 14px 14px; box-sizing: border-box; overflow: hidden; transition: height 0.5s cubic-bezier(0.77, 0, 0.175, 1); display: flex; align-items: center; justify-content: center; }
+        .ticker-bar.open { height: 42px; }
+        .ticker-content { font-size: 0.85rem; font-weight: 700; color: #ffffff; display: none; align-items: center; gap: 8px; width: 100%; justify-content: center; text-align: center; animation: slideFade 0.4s ease; }
+        .ticker-content.active { display: flex; }
+        .ticker-val { color: #FFB300; margin: 0 4px; }
+        .ticker-split { color: rgba(255,255,255,0.3); margin: 0 8px; }
+        @keyframes slideFade { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        
+        /* Box di Debug */
+        #debug-log { background: #330000; color: #ff9999; padding: 8px; font-size: 0.75rem; border-radius: 6px; margin-top: 10px; max-width: 450px; font-family: monospace; border: 1px solid #ff3333; }
+    </style>
+</head>
+<body>
+
+<div class="widget-container" id="main-widget">
+    <div class="scoreboard">
+        <div class="team-container">
+            <div class="cards-container">
+                <div id="cards-home-yellow-box" class="card-badge"><span class="mini-card yellow"></span><span id="cards-home-yellow">0</span></div>
+                <div id="cards-home-red-box" class="card-badge"><span class="mini-card red"></span><span id="cards-home-red">0</span></div>
+            </div>
+            <div class="team-row"><span id="team-home-name">In attesa...</span><img id="team-home-logo" class="team-logo" src="" alt=""></div>
+        </div>
+        <div class="match-status">
+            <div class="score-box"><span id="score-home">0</span><span>-</span><span id="score-away">0</span></div>
+            <div id="match-time" class="time-badge">CONNESSO</div>
+            <div id="penalty-score" class="penalty-box">RIGORI: 0 - 0</div>
+        </div>
+        <div class="team-container">
+            <div class="cards-container">
+                <div id="cards-away-yellow-box" class="card-badge"><span class="mini-card yellow"></span><span id="cards-away-yellow">0</span></div>
+                <div id="cards-away-red-box" class="card-badge"><span class="mini-card red"></span><span id="cards-away-red">0</span></div>
+            </div>
+            <div class="team-row"><img id="team-away-logo" class="team-logo" src="" alt=""><span id="team-away-name">In attesa...</span></div>
+        </div>
+    </div>
+
+    <div class="ticker-bar" id="ticker-box">
+        <div class="ticker-content" id="panel-1">⚽ MARCATORI:<span id="stat-scorers" class="ticker-val">-</span></div>
+        <div class="ticker-content" id="panel-2">📊 POSSESSO PALLA:<span id="stat-pos-home" class="ticker-val">-</span><span class="ticker-split">|</span><span id="stat-pos-away" class="ticker-val">-</span></div>
+        <div class="ticker-content" id="panel-3">🎯 ATTACCO:<span id="stat-shots" class="ticker-val">-</span><span class="ticker-split">•</span><span id="stat-corners" class="ticker-val">-</span></div>
+        <div class="ticker-content" id="panel-4">🔄 EVENTI RECENTI:<span id="stat-events" class="ticker-val">-</span></div>
+    </div>
+</div>
+
+<div id="debug-log">Log Diagnostica: Inizializzazione...</div>
+
+<script>
+// IMPOSTA QUESTI DUE DATI
+const API_KEY = "5f832542aamshc2b9ffb7516ad91p1091dfjsn28da6bb981ce"; 
+const FIXTURE_ID = "32562"; // ID fisso di test globale (Funziona sempre, 365 giorni all'anno)
+
+const SECONDI_REFRESH_LIVE = 90; 
+let stringaControlloEventi = "";
+let tickerInEsecuzione = false;
+let minutiAttuali = 0;
+let secondiAttuali = 0;
+let intervalloCronometroLocal = null;
+let isMatchLive = false;
+let apiLoopTimer = null;
+
+function logDebug(testo) {
+    document.getElementById('debug-log').innerText = "Diagnostica: " + testo;
+}
+
+function recuperaDatiPartita() {
+    logDebug("Invio richiesta a RapidAPI...");
+    const xhr = new XMLHttpRequest();
+    const url = `https://api-football-v1.p.rapidapi.com/v3/fixtures?id=${FIXTURE_ID}`;
+    xhr.open("GET", url, true);
+    xhr.setRequestHeader("x-rapidapi-key", API_KEY.trim());
+    xhr.setRequestHeader("x-rapidapi-host", "api-football-v1.p.rapidapi.com");
+
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+            logDebug("Risposta ricevuta. HTTP Status: " + xhr.status);
+            
+            if (xhr.status !== 200) {
+                logDebug(`ERRORE DI RETE HTTP ${xhr.status}. Controlla se la API_KEY è incollata bene.`);
+                return;
+            }
+            
+            try {
+                const data = JSON.parse(xhr.responseText);
+                
+                // Controllo se le API ci bloccano internamente per superamento soglia o piano non attivo
+                if (data.errors && Object.keys(data.errors).length > 0) {
+                    logDebug("BLOCCO API: " + JSON.stringify(data.errors));
+                    return;
+                }
+                
+                if (!data.response || data.response.length === 0) {
+                    logDebug("ERRORE: L'ID partita " + FIXTURE_ID + " non esiste nel database.");
+                    return;
+                }
+                
+                logDebug("Dati ricevuti con successo! Rendering in corso...");
+                const match = data.response[0];
+                
+                // Aggiorna Grafica
+                document.getElementById('team-home-name').innerText = match.teams?.home?.name || "CASA";
+                if(match.teams?.home?.logo) document.getElementById('team-home-logo').src = match.teams.home.logo;
+                document.getElementById('team-away-name').innerText = match.teams?.away?.name || "FUORI";
+                if(match.teams?.away?.logo) document.getElementById('team-away-logo').src = match.teams.away.logo;
+                
+                document.getElementById('score-home').innerText = match.goals?.home ?? 0;
+                document.getElementById('score-away').innerText = match.goals?.away ?? 0;
+
+                // Cartellini ed Eventi
+                let yellowHome = 0, redHome = 0, yellowAway = 0, redAway = 0;
+                let listaGol = [], ultimoEventoTesto = "Nessun cambio rilevante";
+                let improntaEventiAttuale = "";
+
+                if (match.events && Array.isArray(match.events)) {
+                    match.events.forEach(ev => {
+                        improntaEventiAttuale += ev.time.elapsed + ev.type + ev.detail;
+                        const isHome = (ev.team?.id === match.teams?.home?.id);
+                        if (ev.type === "Card") {
+                            if (ev.detail === "Yellow Card") isHome ? yellowHome++ : yellowAway++;
+                            else if (ev.detail === "Red Card") isHome ? redHome++ : redAway++;
+                        }
+                        if (ev.type === "Goal" && ev.player?.name) listaGol.push(`${ev.time.elapsed}' ${ev.player.name}`);
+                        if (ev.type === "Subst" && ev.player?.name && ev.assist?.name) {
+                            ultimoEventoTesto = `Cambio: ${ev.time.elapsed}' Out: ${ev.player.name} -> In: ${ev.assist.name}`;
+                        }
+                    });
+                }
+
+                aggiornaBadge('cards-home-yellow', yellowHome);
+                aggiornaBadge('cards-home-red', redHome);
+                aggiornaBadge('cards-away-yellow', yellowAway);
+                aggiornaBadge('cards-away-red', redAway);
+                document.getElementById('stat-scorers').innerText = listaGol.length > 0 ? listaGol.join(", ") : "Nessun gol";
+                document.getElementById('stat-events').innerText = ultimoEventoTesto;
+
+                // Statistiche
+                let posHome = "50%", posAway = "50%", tiriHome = 0, tiriAway = 0, cornHome = 0, cornAway = 0;
+                if (match.statistics && Array.isArray(match.statistics)) {
+                    match.statistics.forEach(teamStat => {
+                        const isHome = (teamStat.team?.id === match.teams?.home?.id);
+                        if (teamStat.statistics && Array.isArray(teamStat.statistics)) {
+                            teamStat.statistics.forEach(st => {
+                                if (st.type === "Ball Possession") isHome ? posHome = st.value : posAway = st.value;
+                                if (st.type === "Total Shots") isHome ? tiriHome = st.value || 0 : tiriAway = st.value || 0;
+                                if (st.type === "Corner Kicks") isHome ? cornHome = st.value || 0 : cornAway = st.value || 0;
+                            });
+                        }
+                    });
+                }
+                document.getElementById('stat-pos-home').innerText = posHome;
+                document.getElementById('stat-pos-away').innerText = posAway;
+                document.getElementById('stat-shots').innerText = `${tiriHome} - ${tiriAway} Tiri`;
+                document.getElementById('stat-corners').innerText = `${cornHome} - ${cornAway} Corner`;
+
+                // Stati Match
+                const status = match.fixture?.status?.short || "NS";
+                const timeBadge = document.getElementById('match-time');
+                const penaltyBox = document.getElementById('penalty-score');
+                
+                if (status === "1H" || status === "2H" || status === "ET" || status === "LIVE" || status === "HT") {
+                    minutiAttuali = parseInt(match.fixture?.status?.elapsed) || 45;
+                    penaltyBox.style.display = "none";
+                    
+                    if (!isMatchLive) {
+                        secondiAttuali = 0;
+                        isMatchLive = true;
+                        timeBadge.classList.add('live-pulse');
+                        if (intervalloCronometroLocal) clearInterval(intervalloCronometroLocal);
+                        intervalloCronometroLocal = setInterval(engineSecondiVirtuali, 1000);
+                    }
+                    aggiornaGraficaTimer();
+                    pianificaProssimoCheck(SECONDI_REFRESH_LIVE * 1000);
+                } else {
+                    isMatchLive = false;
+                    if (intervalloCronometroLocal) clearInterval(intervalloCronometroLocal);
+                    timeBadge.classList.remove('live-pulse');
+                    timeBadge.innerText = "FINALE";
+                }
+
+                if (stringaControlloEventi !== "" && stringaControlloEventi !== improntaEventiAttuale && !tickerInEsecuzione) {
+                    avviaCicloRotazioneTicker();
+                }
+                stringaControlloEventi = improntaEventiAttuale;
+
+            } catch (e) {
+                logDebug("Errore nel parsing dei dati: " + e.message);
+            }
+        }
+    };
+    try {
+        xhr.send(null);
+    } catch(err) {
+        logDebug("Errore fatale di rete: " + err.message);
+    }
+}
+
+function pianificaProssimoCheck(millisecondi) {
+    if (apiLoopTimer) clearTimeout(apiLoopTimer);
+    apiLoopTimer = setTimeout(recuperaDatiPartita, millisecondi);
+}
+
+function engineSecondiVirtuali() {
+    secondiAttuali++;
+    if (secondiAttuali >= 60) {
+        secondiAttuali = 0;
+        minutiAttuali++;
+    }
+    aggiornaGraficaTimer();
+}
+
+function aggiornaGraficaTimer() {
+    let stringaSecondi = secondiAttuali < 10 ? "0" + secondiAttuali : secondiAttuali;
+    document.getElementById('match-time').innerText = `${minutiAttuali}:${stringaSecondi} LIVE`;
+}
+
+function aggiornaBadge(id, val) {
+    const el = document.getElementById(id);
+    const box = document.getElementById(id + "-box");
+    if(el) el.innerText = val;
+    if(box) val > 0 ? box.classList.add('visible') : box.classList.remove('visible');
+}
+
+function avviaCicloRotazioneTicker() {
+    if (tickerInEsecuzione) return;
+    tickerInEsecuzione = true;
+    const tickerBox = document.getElementById('ticker-box');
+    const pannelli = [document.getElementById('panel-1'), document.getElementById('panel-2'), document.getElementById('panel-3'), document.getElementById('panel-4')];
+    tickerBox.classList.add('open');
+    let fase = 0;
+    function mostraFase() {
+        if (fase < pannelli.length) {
+            if (fase > 0) pannelli[fase - 1].classList.remove('active');
+            pannelli[fase].classList.add('active');
+            fase++;
+            setTimeout(mostraFase, 8000);
+        } else {
+            pannelli[pannelli.length - 1].classList.remove('active');
+            tickerBox.classList.remove('open');
+            tickerInEsecuzione = false;
+        }
+    }
+    setTimeout(mostraFase, 500);
+}
+
+// Inizializzazione rapida
+recuperaDatiPartita();
+setInterval(avviaCicloRotazioneTicker, 60000);
+setTimeout(avviaCicloRotazioneTicker, 5000);
+</script>
+
+</body>
+</html>
